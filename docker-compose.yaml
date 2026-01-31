@@ -2,34 +2,29 @@ version: "3.8"
 
 services:
   airflow:
-    # Build from Dockerfile in this repo (which installs providers & copies DAGs)
     build: .
     container_name: airflow-tractrac
     restart: unless-stopped
+    # Let the image run as its default 'airflow' user
+    # user: "0:0"   # ← remove this unless you really need root
 
     environment:
-      # Core settings
       AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
 
-      # Paths inside container
       AIRFLOW__CORE__DAGS_FOLDER: "/opt/airflow/dags"
       AIRFLOW__CORE__PLUGINS_FOLDER: "/opt/airflow/plugins"
 
-      # SQLite DB stored in its own folder (mounted volume)
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "sqlite:////opt/airflow/db/airflow.db"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "sqlite:////opt/airflow/airflow.db"
 
-      # Webserver
       AIRFLOW__WEBSERVER__WEB_SERVER_PORT: "8080"
       AIRFLOW__WEBSERVER__BASE_URL: "https://airflow.tractrac.co"
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"
 
-      # Security & logging
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
 
-      # Initial admin user (only used on very first run)
       _AIRFLOW_WWW_USER_USERNAME: "admintractrac"
       _AIRFLOW_WWW_USER_PASSWORD: "@Tractrac_2025"
       _AIRFLOW_WWW_USER_FIRSTNAME: "Tractrac"
@@ -37,12 +32,9 @@ services:
       _AIRFLOW_WWW_USER_EMAIL: "tractracnigeria@gmail.com"
 
     volumes:
-      # Persist DB and logs, but NOT DAGs (DAGs come from the image)
-      - airflow-db:/opt/airflow/db
-      - airflow-logs:/opt/airflow/logs
+      - airflow-data:/opt/airflow
 
     command: standalone
 
 volumes:
-  airflow-db:
-  airflow-logs:
+  airflow-data:
