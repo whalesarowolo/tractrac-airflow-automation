@@ -1,16 +1,15 @@
 FROM apache/airflow:3.1.3
 
-# Switch to root to install packages
+# (Optional) if you need OS-level deps, install them as root here
 USER root
+# RUN apt-get update && apt-get install -y build-essential && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the image
 COPY requirements-airflow.txt /requirements-airflow.txt
 
-# Install Python packages (Airflow providers and extras)
+# Install python packages as the airflow user (this is the key fix)
+USER airflow
 RUN pip install --no-cache-dir -r /requirements-airflow.txt
 
-# Copy DAGs from repo into the standard Airflow DAGs folder
-COPY dags /opt/airflow/dags
-
-# Switch back to airflow user (best practice)
-USER airflow
+# Copy DAGs (and any plugins) — make sure permissions are OK
+COPY dags/ /opt/airflow/dags/
+# COPY plugins/ /opt/airflow/plugins/
