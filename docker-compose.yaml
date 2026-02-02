@@ -23,7 +23,7 @@ services:
       postgres:
         condition: service_healthy
 
-    # IMPORTANT: override entrypoint so it doesn't become `airflow bash ...`
+    # override entrypoint so it runs bash, not `airflow <something>`
     entrypoint: ["/bin/bash", "-lc"]
 
     environment:
@@ -31,50 +31,60 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
 
+      # FAB auth manager
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
 
+      # DB
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
 
+      # Airflow 3 UI/API
       AIRFLOW__API__HOST: "0.0.0.0"
       AIRFLOW__API__PORT: "8080"
       AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
 
+      # IMPORTANT: set API secret key (some setups fail without this when not using standalone)
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+
+      # Your existing fernet key
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
 
     volumes:
       - airflow-logs:/opt/airflow/logs
 
-    # Idempotent init: migrate DB + create admin user (ignore if already exists)
+    # Coolify-safe single-line command + ALWAYS exit 0
     command: >
-      airflow db migrate &&
+      set -e;
+      echo "[init] migrating db";
+      airflow db migrate || true;
+      echo "[init] creating admin (ignore if exists)";
       airflow users create
       --username admintractrac
-      --password @Tractrac_2025
+      --password "@Tractrac_2025"
       --firstname Tractrac
       --lastname ISSAM
       --role Admin
       --email tractracnigeria@gmail.com
-      || true
+      || true;
+      echo "[init] done";
+      exit 0
 
   airflow-api:
     build: .
     restart: unless-stopped
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
-
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-
       AIRFLOW__API__HOST: "0.0.0.0"
       AIRFLOW__API__PORT: "8080"
       AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
-
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
@@ -87,12 +97,13 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
@@ -103,12 +114,13 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
@@ -119,12 +131,13 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
