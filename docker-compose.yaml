@@ -12,6 +12,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__WEBSERVER__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
 
       AIRFLOW__CORE__DAGS_FOLDER: "/opt/airflow/dags"
       AIRFLOW__CORE__PLUGINS_FOLDER: "/opt/airflow/plugins"
