@@ -23,7 +23,7 @@ services:
       postgres:
         condition: service_healthy
 
-    # override entrypoint so it runs bash, not `airflow <something>`
+    # IMPORTANT: run bash directly (prevents `airflow bash ...` issues)
     entrypoint: ["/bin/bash", "-lc"]
 
     environment:
@@ -34,7 +34,7 @@ services:
       # FAB auth manager
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
 
-      # DB
+      # Postgres metadata DB
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
 
       # Airflow 3 UI/API
@@ -42,30 +42,42 @@ services:
       AIRFLOW__API__PORT: "8080"
       AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
 
-      # IMPORTANT: set API secret key (some setups fail without this when not using standalone)
-      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+      # IMPORTANT: set a stable secret key (set this in Coolify too)
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
 
-      # Your existing fernet key
+      # Your existing fernet key (prefer putting this in Coolify too)
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
+
+      # Admin user values should be set in Coolify env vars:
+      # AIRFLOW_ADMIN_USERNAME
+      # AIRFLOW_ADMIN_PASSWORD
+      # AIRFLOW_ADMIN_FIRSTNAME
+      # AIRFLOW_ADMIN_LASTNAME
+      # AIRFLOW_ADMIN_EMAIL
 
     volumes:
       - airflow-logs:/opt/airflow/logs
 
-    # Coolify-safe single-line command + ALWAYS exit 0
+    # Always exit 0 so Coolify doesn't mark deployment failed due to init
     command: >
       set -e;
-      echo "[init] migrating db";
+      echo "[init] migrating DB";
       airflow db migrate || true;
-      echo "[init] creating admin (ignore if exists)";
-      airflow users create
-      --username admintractrac
-      --password "@Tractrac_2025"
-      --firstname Tractrac
-      --lastname ISSAM
-      --role Admin
-      --email tractracnigeria@gmail.com
-      || true;
+      echo "[init] creating admin user if vars provided";
+      if [ -n "$AIRFLOW_ADMIN_USERNAME" ] && [ -n "$AIRFLOW_ADMIN_PASSWORD" ] && [ -n "$AIRFLOW_ADMIN_EMAIL" ]; then
+        airflow users list | grep -q " $AIRFLOW_ADMIN_USERNAME " ||
+        airflow users create
+        --username "$AIRFLOW_ADMIN_USERNAME"
+        --password "$AIRFLOW_ADMIN_PASSWORD"
+        --firstname "${AIRFLOW_ADMIN_FIRSTNAME:-Admin}"
+        --lastname "${AIRFLOW_ADMIN_LASTNAME:-User}"
+        --role Admin
+        --email "$AIRFLOW_ADMIN_EMAIL"
+        || true;
+      else
+        echo "[init] admin env vars not set, skipping user creation";
+      fi;
       echo "[init] done";
       exit 0
 
@@ -81,16 +93,21 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+
       AIRFLOW__API__HOST: "0.0.0.0"
       AIRFLOW__API__PORT: "8080"
       AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
-      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
+
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
       - airflow-logs:/opt/airflow/logs
-    ports:
-      - "8080:8080"
+
+    # DO NOT publish 8080 on the host (Coolify proxy should route internally)
+    expose:
+      - "8080"
+
     command: ["api-server"]
 
   airflow-scheduler:
@@ -103,7 +120,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
@@ -120,7 +137,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
@@ -137,7 +154,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_TO_A_RANDOM_LONG_SECRET"
+      AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
