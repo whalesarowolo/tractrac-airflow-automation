@@ -23,27 +23,44 @@ services:
       postgres:
         condition: service_healthy
 
-    # IMPORTANT: override entrypoint so we can run bash script (otherwise it becomes `airflow bash ...`)
-    entrypoint: ["/bin/bash", "-lc"]
+    # IMPORTANT: override entrypoint so it doesn't become `airflow bash ...`
+    entrypoint: ["/bin/bash"]
+    command:
+      - -lc
+      - >
+        set -e;
+        airflow db migrate;
+        airflow users list | grep -q " $AIRFLOW_ADMIN_USERNAME " ||
+        airflow users create
+          --username "$AIRFLOW_ADMIN_USERNAME"
+          --password "$AIRFLOW_ADMIN_PASSWORD"
+          --firstname "$AIRFLOW_ADMIN_FIRSTNAME"
+          --lastname "$AIRFLOW_ADMIN_LASTNAME"
+          --role Admin
+          --email "$AIRFLOW_ADMIN_EMAIL";
+        echo "airflow-init done";
 
     environment:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
 
+      # FAB auth manager (this will now take effect because we are NOT using standalone)
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
 
+      # Postgres metadata DB
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
 
-      # Airflow 3.x: UI/API uses [api]
-      AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
+      # Airflow 3: UI/API runs on the API server
       AIRFLOW__API__HOST: "0.0.0.0"
       AIRFLOW__API__PORT: "8080"
+      AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
 
+      # Keep your existing fernet key (prefer Coolify secret)
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
 
-      # Admin user vars (keep these in Coolify secrets ideally)
+      # Admin user for first-time setup (prefer Coolify secrets)
       AIRFLOW_ADMIN_USERNAME: "admintractrac"
       AIRFLOW_ADMIN_PASSWORD: "@Tractrac_2025"
       AIRFLOW_ADMIN_FIRSTNAME: "Tractrac"
@@ -52,20 +69,6 @@ services:
 
     volumes:
       - airflow-logs:/opt/airflow/logs
-
-    command: |
-      set -e
-      airflow db migrate
-
-      # create user only if it doesn't exist
-      airflow users list | grep -q "$AIRFLOW_ADMIN_USERNAME" || \
-      airflow users create \
-        --username "$AIRFLOW_ADMIN_USERNAME" \
-        --password "$AIRFLOW_ADMIN_PASSWORD" \
-        --firstname "$AIRFLOW_ADMIN_FIRSTNAME" \
-        --lastname "$AIRFLOW_ADMIN_LASTNAME" \
-        --role Admin \
-        --email "$AIRFLOW_ADMIN_EMAIL"
 
   airflow-api:
     build: .
@@ -79,17 +82,21 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
       AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-      AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
+
       AIRFLOW__API__HOST: "0.0.0.0"
       AIRFLOW__API__PORT: "8080"
+      AIRFLOW__API__BASE_URL: "https://airflow.tractrac.co"
+
       AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     volumes:
       - airflow-logs:/opt/airflow/logs
+
+    # Keep this if you want direct host access; Coolify may not require it.
     ports:
       - "8080:8080"
 
-    # IMPORTANT: use the Airflow subcommand ONLY (entrypoint already runs `airflow <command>`)
+    # IMPORTANT: for apache/airflow image, command should be the airflow subcommand only
     command: ["api-server"]
 
   airflow-scheduler:
