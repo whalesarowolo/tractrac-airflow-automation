@@ -1,5 +1,6 @@
 apache-airflow-providers-postgres
 apache-airflow-providers-http
+apache-airflow-fab-auth-manager
 apache-airflow-providers-fab
 apache-airflow-providers-common-sql
 apache-airflow-providers-git
