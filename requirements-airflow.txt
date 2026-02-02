@@ -4,4 +4,4 @@ apache-airflow-providers-fab
 apache-airflow-providers-common-sql
 apache-airflow-providers-git
 apache-airflow-providers-airbyte
-pandas==2.2.*
+pandas
