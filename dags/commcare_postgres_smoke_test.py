@@ -13,6 +13,6 @@ with DAG(
 
     SQLExecuteQueryOperator(
         task_id="select_1",
-        conn_id="commcare_postgres",
+        conn_id="tractrac_postgres",
         sql="SELECT 1;",
     )
