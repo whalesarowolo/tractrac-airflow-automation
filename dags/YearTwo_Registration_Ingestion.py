@@ -129,7 +129,7 @@ with DAG(
 
     @task
     def get_watermark() -> str:
-        pg = PostgresHook("commcare_data_postgres")
+        pg = PostgresHook("tractrac_postgres")
         with pg.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
@@ -240,7 +240,7 @@ with DAG(
 
             rows.append(tuple(row.get(c) for c in cols))
 
-        pg = PostgresHook("commcare_data_postgres")
+        pg = PostgresHook("tractrac_postgres")
 
         insert_sql = f"""
         INSERT INTO bronze.year_two_farmers_registration ({",".join(cols)})
@@ -300,7 +300,7 @@ with DAG(
     def update_watermark(new_wm_iso: Optional[str]) -> None:
         if not new_wm_iso:
             return
-        pg = PostgresHook("commcare_data_postgres")
+        pg = PostgresHook("tractrac_postgres")
         with pg.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
