@@ -11,6 +11,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.hooks.base import BaseHook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.exceptions import AirflowSkipException
 from psycopg2.extras import execute_values
 
 SOURCE_NAME = "commcare_farmers_registration"
@@ -142,6 +143,35 @@ with DAG(
             cur.execute("SELECT last_watermark FROM bronze.etl_state WHERE source_name=%s", (SOURCE_NAME,))
             (wm,) = cur.fetchone()
         return wm.isoformat()
+    
+    @task
+    def check_commcare_has_new_data(watermark_iso: str) -> str:
+        """
+        Returns the same watermark if CommCare has data newer than watermark.
+        Raises AirflowSkipException to skip downstream if no new data.
+        """
+        http = BaseHook.get_connection("commcare_http")
+        base_url = http.host.rstrip("/")
+        s = _get_commcare_session()
+
+        last_wm = pendulum.parse(watermark_iso).in_timezone("UTC")
+
+        params = {
+            "$filter": f"{WATERMARK_FIELD} gt {last_wm.to_iso8601_string()}",
+            "$orderby": f"{WATERMARK_FIELD} asc",
+            "$top": 1,
+        }
+
+        r = s.get(f"{base_url}{ODATA_PATH}", params=params, timeout=60)
+        r.raise_for_status()
+        page = r.json()
+        recs = page.get("value") or []
+
+        if not recs:
+            # This makes Airflow mark the task as skipped, and downstream tasks will be skipped too.
+            raise AirflowSkipException("No new data in CommCare since last watermark.")
+
+        return watermark_iso
 
     @task
     def fetch_incremental(watermark_iso: str) -> List[Dict[str, Any]]:
@@ -313,6 +343,8 @@ with DAG(
             conn.commit()
 
     wm = get_watermark()
-    recs = fetch_incremental(wm)
+    wm_checked = check_commcare_has_new_data(wm)
+    
+    recs = fetch_incremental(wm_checked)
     new_wm = upsert_bronze(recs)
     update_watermark(new_wm)
