@@ -46,7 +46,7 @@ services:
       AIRFLOW__API__SECRET_KEY: "CHANGE_ME_IN_COOLIFY"
 
       # Your existing fernet key (prefer putting this in Coolify too)
-      AIRFLOW__CORE__FERNET_KEY: "nwyqKoQOWOCPb7Ih5VsuJYd1YOQ9dlHQCiga-PgfPuk="
+      AIRFLOW__CORE__FERNET_KEY: "    "
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
 
       # Admin user values should be set in Coolify env vars:
